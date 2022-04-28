@@ -1,3 +1,3 @@
 import pool from "./pg"
-
-export { pool }
+import redisClient from "./cache/redis"
+export { pool, redisClient }
