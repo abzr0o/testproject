@@ -39,84 +39,118 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 exports.__esModule = true;
+var bcrypt_1 = __importDefault(require("bcrypt"));
+var jsonwebtoken_1 = __importDefault(require("jsonwebtoken"));
 var db_1 = require("../../db");
 var schema_1 = require("../../schema");
-var bcrypt_1 = __importDefault(require("bcrypt"));
-var error = {};
 var LoginController = function (request, response, next) { return __awaiter(void 0, void 0, void 0, function () {
-    var _a, password, username, err_1, query, data;
-    return __generator(this, function (_b) {
-        switch (_b.label) {
+    var _a, password, username, err_1, data, CheckPassword, payload, token, RefreshTokens, err_2, err_3, err_4;
+    var _b;
+    return __generator(this, function (_c) {
+        switch (_c.label) {
             case 0:
                 _a = request.body, password = _a.password, username = _a.username;
-                _b.label = 1;
+                _c.label = 1;
             case 1:
-                _b.trys.push([1, 3, , 4]);
+                _c.trys.push([1, 3, , 4]);
                 return [4 /*yield*/, schema_1.LoginSchema.validateAsync({ password: password, username: username })];
             case 2:
-                _b.sent();
+                _c.sent();
                 return [3 /*break*/, 4];
             case 3:
-                err_1 = _b.sent();
-                error.badRequest = "try again";
+                err_1 = _c.sent();
+                // const eroor = {}
+                // eroor[err.details[0].path[0]] = err.details.message
+                // console.log(typeof err.details[0].path[0])
+                response
+                    .status(400)
+                    .send({ error: (_b = {}, _b[err_1.details[0].path[0]] = err_1.details[0].message, _b) });
                 return [3 /*break*/, 4];
             case 4:
-                query = function () { return __awaiter(void 0, void 0, void 0, function () {
-                    var data_1, CheckPassword, err_2, err_3;
-                    return __generator(this, function (_a) {
-                        switch (_a.label) {
-                            case 0:
-                                _a.trys.push([0, 8, , 9]);
-                                return [4 /*yield*/, db_1.pool.query("select * from users where username = $1 ", [username])];
-                            case 1:
-                                data_1 = _a.sent();
-                                if (!(data_1.rows.length > 0)) return [3 /*break*/, 6];
-                                _a.label = 2;
-                            case 2:
-                                _a.trys.push([2, 4, , 5]);
-                                return [4 /*yield*/, bcrypt_1["default"].compare(password, data_1.rows[0].password)];
-                            case 3:
-                                CheckPassword = _a.sent();
-                                if (CheckPassword) {
-                                    return [2 /*return*/, data_1.rows];
-                                }
-                                else {
-                                    error.password = "wrong crediantil";
-                                    return [2 /*return*/];
-                                }
-                                return [3 /*break*/, 5];
-                            case 4:
-                                err_2 = _a.sent();
-                                console.log(err_2);
-                                return [3 /*break*/, 5];
-                            case 5: return [3 /*break*/, 7];
-                            case 6:
-                                error.username = "username not found";
-                                return [2 /*return*/];
-                            case 7: return [3 /*break*/, 9];
-                            case 8:
-                                err_3 = _a.sent();
-                                response.status(500).end();
-                                next();
-                                return [2 /*return*/];
-                            case 9: return [2 /*return*/];
-                        }
-                    });
-                }); };
-                if (error &&
-                    Object.keys(error).length === 0 &&
-                    Object.getPrototypeOf(error) === Object.prototype) {
-                    console.log(error);
-                    response.status(400).send(error).end();
-                    next();
-                    return [2 /*return*/];
-                }
-                return [4 /*yield*/, query()];
+                _c.trys.push([4, 18, , 19]);
+                return [4 /*yield*/, db_1.pool.query("select * from users where username = $1 ", [
+                        username,
+                    ])];
             case 5:
-                data = _b.sent();
-                response.status(200).send(data).end();
+                data = _c.sent();
+                if (!(data.rows.length > 0)) return [3 /*break*/, 16];
+                _c.label = 6;
+            case 6:
+                _c.trys.push([6, 14, , 15]);
+                return [4 /*yield*/, bcrypt_1["default"].compare(password, data.rows[0].password)];
+            case 7:
+                CheckPassword = _c.sent();
+                if (!CheckPassword) return [3 /*break*/, 12];
+                payload = {
+                    id: data.rows[0].id,
+                    username: data.rows[0].username,
+                    email: data.rows[0].email,
+                    role: data.rows[0].role,
+                    ability: [
+                        { action: data.rows[0].action, subject: data.rows[0].subject },
+                    ]
+                };
+                token = jsonwebtoken_1["default"].sign(payload, process.env.SECRET, {
+                    expiresIn: "1h"
+                });
+                RefreshTokens = jsonwebtoken_1["default"].sign(payload, process.env.SECRETR, {
+                    expiresIn: "1d"
+                });
+                _c.label = 8;
+            case 8:
+                _c.trys.push([8, 10, , 11]);
+                return [4 /*yield*/, db_1.pool.query("insert into RefreshTokens(token)values($1) returning *", [RefreshTokens])];
+            case 9:
+                _c.sent();
+                response
+                    .cookie("session", { token: token }, {
+                    maxAge: 1000 * 60 * 60 * 24,
+                    httpOnly: false,
+                    secure: false
+                })
+                    .status(200)
+                    .send({
+                    userData: payload,
+                    accessToken: token,
+                    refreshToken: RefreshTokens
+                })
+                    .end();
                 next();
                 return [2 /*return*/];
+            case 10:
+                err_2 = _c.sent();
+                response.status(500).end();
+                next();
+                return [3 /*break*/, 11];
+            case 11: return [3 /*break*/, 13];
+            case 12:
+                response
+                    .status(400)
+                    .send({ error: { password: "wrong crediantil" } })
+                    .end();
+                next();
+                _c.label = 13;
+            case 13: return [3 /*break*/, 15];
+            case 14:
+                err_3 = _c.sent();
+                response.status(500).end();
+                next();
+                return [3 /*break*/, 15];
+            case 15: return [3 /*break*/, 17];
+            case 16:
+                response
+                    .status(400)
+                    .send({ error: { username: "username not found" } })
+                    .end();
+                next();
+                _c.label = 17;
+            case 17: return [3 /*break*/, 19];
+            case 18:
+                err_4 = _c.sent();
+                response.status(500).end();
+                next();
+                return [3 /*break*/, 19];
+            case 19: return [2 /*return*/];
         }
     });
 }); };

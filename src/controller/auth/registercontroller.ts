@@ -9,6 +9,7 @@ const registerController = async (
   next: NextFunction
 ) => {
   const { email, username, password, confirmPassword } = request.body
+
   try {
     const { value } = registerSchema.validate({
       email,
@@ -36,8 +37,8 @@ const registerController = async (
     const HasedPassword = await bcry.hash(value.password, 12)
     try {
       const data = await pool.query(
-        "insert into users (username,password,email) values ($1,$2,$3) returning id,username,email",
-        [value.username, HasedPassword, value.email]
+        "insert into users (username,password,email,action,subject,role) values ($1,$2,$3,$4,$5,$6) returning id,username,email,action,role,subject",
+        [value.username, HasedPassword, value.email, "read", "Post", "user"]
       )
       const token = jwt.sign(data.rows[0], process.env.SECRET)
       response
@@ -47,7 +48,11 @@ const registerController = async (
           httpOnly: false,
           secure: false,
         })
-        .send({ token, data: data.rows[0] })
+        .send({
+          token,
+          data: data.rows[0],
+          ac: [{ subject: data.rows[0].subject, action: data.rows[0].action }],
+        })
         .end()
       next()
     } catch (err) {

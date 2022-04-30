@@ -7,4 +7,4 @@ const notAuth = express.Router()
 notAuth.use("/api", login)
 notAuth.use("/api", register)
 
-export { notAuth }
+export default notAuth
